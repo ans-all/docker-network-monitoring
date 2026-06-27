@@ -45,7 +45,7 @@ def monitor_all_host():
     connection.close()
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(monitor_all_host, 'interval', minutes=0.1)
+scheduler.add_job(monitor_all_host, 'interval', seconds=10)
 
 
 @app.route('/')
@@ -54,8 +54,40 @@ def index():
     with connection.cursor() as cursor: # buat cursor
         cursor.execute("SELECT * FROM hosts") # jalankan sql
         d_hosts = cursor.fetchall() #ambil semua hasil query
-    connection.close() # tutup koneksi
-    return render_template('index.html', hosts=d_hosts) #rander dangan mengirim data di variabel d_hosts
+         
+    with connection.cursor() as cursor1:
+        # mendapatkan total hsots dengan count()
+        cursor1.execute("SELECT COUNT(*) AS total_hosts FROM hosts")
+        total_hosts = cursor1.fetchone()['total_hosts']
+
+        sql="SELECT  host_id, status " \
+            "FROM logs " \
+            "WHERE create_at IN (" \
+                "SELECT MAX(create_at) " \
+                "FROM logs " \
+                "GROUP BY host_id)"
+        cursor1.execute(sql)
+        latest_logs = cursor1.fetchall()
+
+        online = sum(1 for log in latest_logs if log['status']=='online')
+        offline = 0
+        for log in latest_logs:
+            if log['status'] == 'offline':
+                offline +=1
+        
+        sql="SELECT COUNT(*) AS total from logs"
+        cursor1.execute(sql)
+        total_logs = cursor1.fetchone()['total']
+
+        sql="SELECT COUNT(*) AS online_count FROM logs WHERE status = 'online'"
+        cursor1.execute(sql)
+        online_logs = cursor1.fetchone()['online_count']
+
+        uptime = round((online_logs / total_logs * 100), 1) if total_logs > 0 else 0
+
+        connection.close() # tutup koneksi
+
+    return render_template('index.html', hosts=d_hosts, total=total_hosts, online=online, offline=offline, uptime=uptime) #rander dangan mengirim data di variabel d_hosts
 
 
 @app.route('/add', methods=['POST'])
@@ -184,5 +216,5 @@ def logs():
 
 if  __name__ == '__main__': #Jalankan aplikasi flask
     scheduler.start()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 

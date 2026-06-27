@@ -1,40 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Network Monitoring</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body class="bg-light">
     <div class="container mt-5">
-        <h2 class="mb-4">🖥️ Network Monitoring Dashboard</h2>
-        <a href="/logs" class="btn btn-sm">logs</a>
+        <h2 class="mb-4">Network Monitoring Dashboard</h2>
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Total Host</h6>
+                        <h2>{{total}}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-success shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Online</h6>
+                        <h2>{{online}}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-danger shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Offline</h6>
+                        <h2>{{offline}}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-primary shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Uptime</h6>
+                        <h2>{{uptime}}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="card mb-4 shadow-sm">
             <div class="card-header bg-primary text-white">Tambah Host Baru</div>
             <div class="card-body">
                 <form action="/add" method="POST" class="row g-3">
                     <div class="col-md-4">
-                        <input type="text" name="hostname" class="form-control" placeholder="Nama Host (contoh: Google)" required>
+                        <input type="text" name="hostname" class="form-control" placeholder="Nama Host (contoh: Google)"
+                            required>
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="ip_address" class="form-control" placeholder="IP Address / Domain" required>
+                        <input type="text" name="ip_address" class="form-control" placeholder="IP Address / Domain"
+                            required>
                     </div>
                     <div class="col-md-4">
-                        <input type="number" name="port" class="form-control" value="80"  placeholder="Port (Default : 80)">
+                        <input type="number" name="port" class="form-control" value="80"
+                            placeholder="Port (Default : 80)">
                     </div>
                     <div class="col-md-3">
                         <input type="text" name="description" class="form-control" placeholder="Deskripsi (Opsional)">
                     </div>
                     <div class="col-md-1">
-                        <button type="submit" class="btn btn-success w-100">Simpan</button>
+                        <button type="submit" class="btn btn-success ">Simpan</button>
                     </div>
                 </form>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">Daftar Host Dipantau</div>
+            <div class="card-header bg-dark text-white">Daftar Host Dipantau <a href="/logs"
+                    class="btn btn-sm btn-info ms-2 fw-semibold">logs</a></div>
             <div class="card-body">
                 <table class="table table-striped table-hover">
                     <thead>
@@ -57,8 +99,10 @@
                             <td>{{ host.description or '-' }}</td>
                             <td>
                                 <a href="/check/{{host.id}}" class="btn btn-sm btn-info">Cek Status</a>
-                                <a href="/edit/{{ host.id }}" class="btn btn-sm" style="background-color: yellow; color: black;">Ubah</a>
-                                <a href="/delete/{{ host.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Yakin ingin menghapus?')">Hapus</a>
+                                <a href="/edit/{{ host.id }}" class="btn btn-sm"
+                                    style="background-color: yellow; color: black;">Ubah</a>
+                                <a href="/delete/{{ host.id }}" class="btn btn-danger btn-sm"
+                                    onclick="return confirm('Yakin ingin menghapus?')">Hapus</a>
                             </td>
                         </tr>
                         {% else %}
@@ -72,4 +116,5 @@
         </div>
     </div>
 </body>
+
 </html>
