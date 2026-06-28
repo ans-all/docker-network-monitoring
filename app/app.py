@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect # import Flask dari library falsk
+from flask import Flask, render_template, request, redirect, jsonify # import Flask dari library falsk
 import pymysql
 import os
 import socket
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
+import requests
+
 
 app = Flask(__name__) # buat aplikasi Flask
 
@@ -16,6 +18,17 @@ def get_db_connection():
         cursorclass = pymysql.cursors.DictCursor
     )
     return connection
+
+
+# IMPLEMENTASI BOT TEGLEGRAM
+def send_notif(pesan):
+    token = os.environ.get('TELEGRAM_TOKEN')
+    chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    requests.get(url, params={
+        'chat_id': chat_id,
+        'text': pesan
+    })
 
 def monitor_all_host():
     connection = get_db_connection()
@@ -41,11 +54,17 @@ def monitor_all_host():
             with connection.cursor() as cursor1:
                 sql = "INSERT INTO logs (host_id, status, latency) VALUES (%s, %s, %s)"
                 cursor1.execute(sql,(hosts['id'], status, latency))
+
+            if status == 'offline':
+                send_notif(f"{hosts['hostname']} sedang offline")
+
         connection.commit()
     connection.close()
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(monitor_all_host, 'interval', seconds=10)
+
+
 
 
 @app.route('/')
@@ -211,7 +230,52 @@ def logs():
     connection.close()
     return render_template('logs.html', logs=d_logs)
 
+@app.route('/api/uptime') # JSON data uptime per host
+def uptime():
+    connection = get_db_connection()
+    with connection.cursor() as cursor:
+        sql="SELECT hosts.hostname, " \
+            "COUNT(*) AS total, " \
+            "SUM(CASE WHEN logs.status = 'online' THEN 1 ELSE 0 END) AS online_count " \
+            "FROM logs " \
+            "JOIN hosts ON logs.host_id = hosts.id " \
+            "GROUP BY hosts.hostname"
+        cursor.execute(sql)
+        d_hosts=cursor.fetchall()
+        labels=[]
+        data=[]
+        for row in d_hosts:
+            labels.append(row['hostname'])
+            uptime = round(row['online_count'] / row['total'] * 100, 1)
+            data.append(uptime)
+        connection.close()
+    return jsonify({"labels": labels, "data": data})
+    
 
+@app.route('/api/latency') # JSON data latency rata-rata per host
+def latency():
+    db=get_db_connection()
+    with db.cursor() as c:
+        sql="SELECT hosts.hostname, " \
+                "AVG(CAST(REPLACE(logs.latency, ' ms', '') AS DECIMAL(10,2))) AS avg_latency " \
+            "FROM logs " \
+            "JOIN hosts ON logs.host_id = hosts.id " \
+            "WHERE logs.status = 'online' " \
+            "GROUP BY hosts.hostname"
+        c.execute(sql)
+        d_hosts = c.fetchall()
+        data=[]
+        labels=[]
+        for row in d_hosts:
+            labels.append(row['hostname'])
+            data.append(row['avg_latency'])
+    db.close()
+    return jsonify({"labels": labels, "data": data})
+
+
+@app.route('/charts') #render charts.html (berisi Chars.js)
+def charts():
+    return render_template('charts.html')
 
 
 if  __name__ == '__main__': #Jalankan aplikasi flask

@@ -22,5 +22,7 @@ services:
       - DB_USER=root
       - DB_PASSWORD=rootdb
       - DB_NAME=monitoring_db
+      - TELEGRAM_TOKEN=8855115904:AAGjt5iBY5RUi5uQNq4D0u6lQgSXb00JVeA
+      - TELEGRAM_CHAT_ID=6259125582
     depends_on:
       - db
