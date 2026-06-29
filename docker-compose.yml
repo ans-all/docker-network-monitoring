@@ -3,6 +3,8 @@ services:
     image: mysql:8.0
     container_name: monitoring_mysql
     restart: always
+    env_file:
+      - .env
     environment:
       MYSQL_ROOT_PASSWORD: rootdb
       MYSQL_DATABASE: monitoring_db
@@ -22,7 +24,7 @@ services:
       - DB_USER=root
       - DB_PASSWORD=rootdb
       - DB_NAME=monitoring_db
-      - TELEGRAM_TOKEN=8855115904:AAGjt5iBY5RUi5uQNq4D0u6lQgSXb00JVeA
-      - TELEGRAM_CHAT_ID=6259125582
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     depends_on:
       - db
