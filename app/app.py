@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, jsonify # import Flask dari library falsk
+from flask import Flask, render_template, request, redirect, jsonify, flash, session # import Flask dari library falsk
 import pymysql
 import os
 import socket
@@ -8,6 +8,7 @@ import requests
 
 
 app = Flask(__name__) # buat aplikasi Flask
+app.secret_key = 'kunci_rahasia_monitoring'
 
 def get_db_connection():
     connection = pymysql.connect(
@@ -31,38 +32,49 @@ def send_notif(pesan):
     })
 
 def monitor_all_host():
-    connection = get_db_connection()
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT * FROM hosts")
-        d_hosts = cursor.fetchall()
-        for hosts in d_hosts:
-            f_time = time.time()
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
-            result = sock.connect_ex((hosts['ip_address'], hosts['port']))
-            sock.close()
-            l_time = time.time()
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM hosts")
+            d_hosts = cursor.fetchall()
+            for hosts in d_hosts:
+                f_time = time.time()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result = sock.connect_ex((hosts['ip_address'], hosts['port']))
+                sock.close()
+                l_time = time.time()
 
-            time_result = (l_time - f_time) * 1000
-            if result == 0:
-                status = "online"
-                latency = f"{time_result:.1f} ms"
-            else:
-                status = "offline"
-                latency = "N/A"
+                time_result = (l_time - f_time) * 1000
+                if result == 0:
+                    status = "online"
+                    latency = f"{time_result:.1f} ms"
+                else:
+                    status = "offline"
+                    latency = "N/A"
                 
-            with connection.cursor() as cursor1:
-                sql = "INSERT INTO logs (host_id, status, latency) VALUES (%s, %s, %s)"
-                cursor1.execute(sql,(hosts['id'], status, latency))
+                with connection.cursor() as cursor2:
+                    sql="SELECT status FROM logs WHERE host_id = %s ORDER BY create_at DESC LIMIT 1"
+                    cursor2.execute(sql, (hosts['id'],))
+                    l_log=cursor2.fetchone()
+                    l_status=l_log['status'] if l_log else None
 
-            if status == 'offline':
-                send_notif(f"{hosts['hostname']} sedang offline")
+                with connection.cursor() as cursor1:
+                    sql = "INSERT INTO logs (host_id, status, latency) VALUES (%s, %s, %s)"
+                    cursor1.execute(sql,(hosts['id'], status, latency))
 
-        connection.commit()
-    connection.close()
+                if status=='offline' and l_status!='offline':
+                    send_notif(f"{hosts['hostname']} OFFLINE")
+                elif status=='online' and l_status=='offline':
+                    send_notif(f"{hosts['hostname']} kembali ONLINE")
+
+            connection.commit()
+        connection.close()
+    except Exception as e:
+        print(f"[monitor] Error: {e}")
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(monitor_all_host, 'interval', seconds=10)
+scheduler.add_job(monitor_all_host, 'interval', seconds=1)
 
 
 
@@ -131,12 +143,20 @@ def add_host():
 def delete_host(host_id):
     connection =  get_db_connection()
     with connection.cursor() as cursor:
+        sql="SELECT COUNT(*) AS jumlah_log FROM logs WHERE host_id=%s"
+        cursor.execute(sql, (host_id,))
+        jumlah_log = cursor.fetchone()['jumlah_log']
+
+        if jumlah_log > 0:
+            flash(f"Host tidak bisa di hapus! Host ini masih memiliki {jumlah_log} log tersimpan", "danger")
+            connection.close()
+            return redirect('/')
+        
         sql = "DELETE FROM hosts WHERE id = %s"
         cursor.execute(sql,(host_id,))
         connection.commit()
     connection.close()
     return redirect('/')
-
 
 @app.route('/edit/<int:host_id>')
 def edit_host(host_id):
@@ -206,7 +226,7 @@ def logs():
     connection = get_db_connection()
     with connection.cursor() as cursor:
         sql = """
-            SELECT logs.id, logs.status, logs.latency, logs.create_at, hosts.hostname
+            SELECT logs.id, logs.host_id, logs.status, logs.latency, logs.create_at, hosts.hostname
             FROM logs
             JOIN hosts ON logs.host_id = hosts.id
         """
@@ -229,6 +249,16 @@ def logs():
         d_logs = cursor.fetchall()
     connection.close()
     return render_template('logs.html', logs=d_logs)
+
+@app.route('/delete/log/<int:host_id>')
+def delete_log(host_id):
+    connectioon = get_db_connection()
+    with connectioon.cursor() as cursor:
+        sql="DELETE FROM logs WHERE host_id=%s"
+        cursor.execute(sql, (host_id,))
+        connectioon.commit()
+    connectioon.close()
+    return redirect('/logs')
 
 @app.route('/api/uptime') # JSON data uptime per host
 def uptime():
