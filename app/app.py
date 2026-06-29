@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, jsonify, flash, session # import Flask dari library falsk
+from flask import Flask, render_template, request, redirect, jsonify, flash # import Flask dari library falsk
 import pymysql
 import os
 import socket
@@ -74,7 +74,7 @@ def monitor_all_host():
         print(f"[monitor] Error: {e}")
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(monitor_all_host, 'interval', seconds=1)
+scheduler.add_job(monitor_all_host, 'interval', seconds=10)
 
 
 
